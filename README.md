@@ -4,7 +4,7 @@ A web app that turns study notes into multiple-choice quizzes using the Claude A
 
 I built it to extend the interactive study apps I use for revision in my Software Development degree, and to learn how to build a reliable application on top of a large language model.
 
-![Screenshot](screenshot.png)
+![Screenshot](Screenshot.png)
 
 ## Features
 
