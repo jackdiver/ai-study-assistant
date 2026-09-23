@@ -6,7 +6,7 @@ const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 300,
     messages: [
-        { role: "user", content: "Write one multiple-choice question about software testing, with 4 options and the correct answer."}
+        { role: "user", content: "Write three multiple-choice question about Data Structures and Algorithms, with 4 options and the correct answer."}
     ],
 });
 
