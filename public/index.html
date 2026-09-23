@@ -160,6 +160,9 @@
             letter-spacing: 0.04em;
             cursor: pointer;
         }
+
+        .result { margin-top: 8px; text-align: center; }
+
         nav button.active { color: var(--accent); }
         #score { font-family: "JetBrains Mono", monospace; font-size: 14px; }
     </style>
@@ -206,6 +209,14 @@
         document.querySelectorAll("nav button").forEach((btn) => {
             btn.addEventListener("click", () => showView(btn.dataset.view));
         });
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
 
         // ---------- Quiz state ----------
         let score = 0;
@@ -265,6 +276,11 @@
             updateScore(quiz.questions.length);
 
             quiz.questions.forEach((q, i) => {
+                const shuffled = shuffle(
+                    q.options.map((text, index) => ({ text, isCorrect: index === q.answerIndex }))
+                );
+                const correctIndex = shuffled.findIndex((option) => option.isCorrect);
+
                 // The card that holds everything for this question
                 const card = document.createElement("div");
                 card.classList.add("question-card");
@@ -282,12 +298,12 @@
                 card.appendChild(text);
 
                 // One button per option
-                q.options.forEach((option, optionIndex) => {
+                shuffled.forEach((option, optionIndex) => {
                     const button = document.createElement("button");
                     button.classList.add("option");
-                    button.textContent = `${"ABCD"[optionIndex]}) ${option}`;
+                    button.textContent = `${"ABCD"[optionIndex]}) ${option.text}`;
                     button.addEventListener("click", () => {
-                        handleAnswer(card, optionIndex, q.answerIndex, quiz.questions.length);
+                        handleAnswer(card, optionIndex, correctIndex, quiz.questions.length);
                     });
                     card.appendChild(button);
                 });
@@ -327,6 +343,23 @@
             //   - add 1 to answered, then call updateScore(total)
             answered++;
             updateScore(total);
+
+            if (answered === total) {
+                const result = document.createElement("div");
+                result.classList.add("result");
+
+                const message = document.createElement("h2");
+                message.textContent = `You got ${score} out of ${total}`;
+                result.appendChild(message);
+
+                const newQuizBtn = document.createElement("button");
+                newQuizBtn.classList.add("primary-btn");
+                newQuizBtn.textContent = "New quiz";
+                newQuizBtn.addEventListener("click", () => showView("notes-view"));
+                result.appendChild(newQuizBtn);
+
+                quizEl.appendChild(result);
+            }
         }
 
         function updateScore(total) {
