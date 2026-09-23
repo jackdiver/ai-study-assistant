@@ -2,12 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-const notes = `
-A stack is Last In, First Out (LIFO). Items are added with push and removed with pop.
-A queue is First In, First Out (FIFO). Breadth-first search uses a queue; depth-first search uses a stack.
-Binary search on a sorted array runs in O(log n) time.
-`;
-
 const quizTool = {
     name: "create_quiz",
     description: "Return multiple-choice quiz questions based on the notes.",
@@ -32,7 +26,7 @@ const quizTool = {
     },
 };
 
-try {
+export async function generateQuiz(notes) {
     const response = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 1000,
@@ -51,25 +45,22 @@ try {
     if (!toolCall) {
         throw new Error("Model did not return a quiz.");
     }
-
+    
     const quiz = toolCall.input; // already a JavaScript object, no JSON.parse needed
     
     if (!Array.isArray(quiz.questions)) {
         throw new Error("Quiz data has no list of questions.");
     }
-
+    
     quiz.questions.forEach((q, i) => {
         if (q.options.length !== 4) {
             throw new Error(`Question ${i + 1} has ${q.options.length} options, expected 4.`);
         }
-
+    
         if (!Number.isInteger(q.answerIndex) || q.answerIndex < 0 || q.answerIndex > 3) {
             throw new Error(`Question ${i + 1} has an invalid answerIndex: ${q.answerIndex}`);
         }
-        console.log(`\nQ${i + 1}: ${q.question}`);
-        q.options.forEach((opt, j) => console.log(`  ${"ABCD"[j]}) ${opt}`));
-        console.log(`  Answer: ${"ABCD"[q.answerIndex]}. ${q.explanation}`);
     });
-} catch (error) {
-    console.error("Request failed:", error.message);
+
+    return quiz;
 }

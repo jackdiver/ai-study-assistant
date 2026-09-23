@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <textarea id="notes" rows="10" cols="60" placeholder="Paste your notes here"></textarea>
+    <br>
+    <button id="generate">Generate quiz</button>
+    <pre id="output"></pre>
+
+    <script>
+        document.getElementById("generate").addEventListener("click", async () => {
+            const notes = document.getElementById("notes").value;
+            const output = document.getElementById("output");
+            output.textContent = "Generating...";
+
+            const res = await fetch("/api/quiz", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ notes }),
+            });
+            const data = await res.json();
+            output.textContent = JSON.stringify(data, null, 2);
+        });
+    </script>
+</body>
+</html>
