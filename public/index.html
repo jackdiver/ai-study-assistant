@@ -1,25 +1,337 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Study Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #141821;
+            --surface: #1d2330;
+            --border: #2c3445;
+            --text: #e6e8ee;
+            --muted: #8b93a7;
+            --accent: #f2b544;
+            --correct: #4cc38a;
+            --wrong: #e5566b;
+            --nav-height: 64px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "JetBrains Mono", Consolas, monospace;
+            font-size: 15px;
+            line-height: 1.6;
+            padding-bottom: calc(var(--nav-height) + 24px);
+        }
+
+        main { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+
+        h1, h2 {
+            font-family: "Bebas Neue", Impact, sans-serif;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            line-height: 1;
+        }
+        h1 { font-size: 44px; margin-bottom: 4px; }
+        h2 { font-size: 28px; margin-bottom: 12px; }
+        .subtitle { color: var(--muted); margin-bottom: 24px; }
+
+        /* Views: only the one with .active is shown */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Notes view */
+        textarea {
+            width: 100%;
+            min-height: 260px;
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font: inherit;
+            resize: vertical;
+        }
+        textarea:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .primary-btn {
+            width: 100%;
+            margin-top: 16px;
+            padding: 14px;
+            background: var(--accent);
+            color: #1a1405;
+            border: none;
+            border-radius: 8px;
+            font-family: "Bebas Neue", Impact, sans-serif;
+            font-size: 22px;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+        }
+        .primary-btn:disabled { opacity: 0.5; cursor: wait; }
+
+        /* Status / error message area */
+        .status { margin-top: 16px; min-height: 1.6em; color: var(--muted); }
+        .status.error { color: var(--wrong); }
+        .status.loading::before {
+            content: "";
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            margin-right: 10px;
+            vertical-align: -2px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Question cards */
+        .question-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+        .question-number {
+            font-family: "Bebas Neue", Impact, sans-serif;
+            font-size: 20px;
+            color: var(--accent);
+        }
+        .question-text { margin: 4px 0 14px; font-weight: 600; }
+
+        .option {
+            display: block;
+            width: 100%;
+            text-align: left;
+            margin-bottom: 8px;
+            padding: 12px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font: inherit;
+            cursor: pointer;
+        }
+        .option:hover:not(:disabled) { border-color: var(--accent); }
+        .option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .option:disabled { cursor: default; }
+        .option.correct { border-color: var(--correct); background: rgba(76, 195, 138, 0.15); }
+        .option.wrong { border-color: var(--wrong); background: rgba(229, 86, 107, 0.15); }
+
+        .explanation {
+            display: none;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .explanation.visible { display: block; }
+
+        .empty { color: var(--muted); }
+
+        /* Bottom navigation bar */
+        nav {
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            height: var(--nav-height);
+            display: flex;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+        nav button {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-family: "Bebas Neue", Impact, sans-serif;
+            font-size: 20px;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+        }
+        nav button.active { color: var(--accent); }
+        #score { font-family: "JetBrains Mono", monospace; font-size: 14px; }
+    </style>
+</head>
 <body>
-    <textarea id="notes" rows="10" cols="60" placeholder="Paste your notes here"></textarea>
-    <br>
-    <button id="generate">Generate quiz</button>
-    <pre id="output"></pre>
+    <main>
+        <!-- NOTES VIEW -->
+        <section id="notes-view" class="view active">
+            <h1>Study Assistant</h1>
+            <p class="subtitle">Paste a section of your notes and get a quiz on it.</p>
+
+            <textarea id="notes" placeholder="Paste your notes here"></textarea>
+            <button id="generate" class="primary-btn">Generate quiz</button>
+            <p id="status" class="status"></p>
+        </section>
+
+        <!-- QUIZ VIEW -->
+        <section id="quiz-view" class="view">
+            <h2>Quiz</h2>
+            <div id="quiz">
+                <p class="empty">No quiz yet. Go to Notes and generate one.</p>
+            </div>
+        </section>
+    </main>
+
+    <nav>
+        <button data-view="notes-view" class="active">Notes</button>
+        <button data-view="quiz-view">Quiz <span id="score"></span></button>
+    </nav>
 
     <script>
-        document.getElementById("generate").addEventListener("click", async () => {
-            const notes = document.getElementById("notes").value;
-            const output = document.getElementById("output");
-            output.textContent = "Generating...";
+        // ---------- Page elements ----------
+        const notesInput = document.getElementById("notes");
+        const generateBtn = document.getElementById("generate");
+        const statusEl = document.getElementById("status");
+        const quizEl = document.getElementById("quiz");
+        const scoreEl = document.getElementById("score");
 
-            const res = await fetch("/api/quiz", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ notes }),
-            });
-            const data = await res.json();
-            output.textContent = JSON.stringify(data, null, 2);
+        // ---------- Bottom nav (already done) ----------
+        function showView(viewId) {
+            document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === viewId));
+            document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === viewId));
+        }
+        document.querySelectorAll("nav button").forEach((btn) => {
+            btn.addEventListener("click", () => showView(btn.dataset.view));
         });
+
+        // ---------- Quiz state ----------
+        let score = 0;
+        let answered = 0;
+
+        // ---------- 1 & 2: Generate button ----------
+        generateBtn.addEventListener("click", async () => {
+            const notes = notesInput.value;
+
+            // TODO 1: Loading state
+            //   - disable generateBtn
+            generateBtn.disabled = true;
+            //   - set statusEl.textContent to a loading message
+            statusEl.textContent = "Generating your quiz...";
+            statusEl.classList.add("loading");
+            //   - remove the "error" class from statusEl
+
+            try {
+                const res = await fetch("/api/quiz", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ notes }),
+                });
+                const data = await res.json();
+
+                // TODO 2: Handle server errors
+                //   - if res.ok is false, show data.error in statusEl,
+                //     add the "error" class, and stop here (return)
+                if (!res.ok) {
+                    statusEl.textContent = data.error;
+                    statusEl.classList.add("error");
+                    return;
+                }
+
+                // Success: draw the quiz and switch to it
+                statusEl.textContent = "";
+                renderQuiz(data);
+                showView("quiz-view");
+            } catch (error) {
+                // This runs if the server can't be reached at all
+                // TODO 2 (continued): show a message like "Can't reach the server. Is it running?"
+                statusEl.textContent = "Can't reach the server. Is it running?";
+                statusEl.classList.add("error");
+            } finally {
+                // TODO 1 (continued): re-enable generateBtn
+                generateBtn.disabled = false;
+                statusEl.classList.remove("loading");
+                // (finally runs whether the request worked or failed)
+            }
+        });
+
+        // ---------- 3: Render the quiz ----------
+        function renderQuiz(quiz) {
+            quizEl.innerHTML = "";
+            score = 0;
+            answered = 0;
+            updateScore(quiz.questions.length);
+
+            quiz.questions.forEach((q, i) => {
+                // The card that holds everything for this question
+                const card = document.createElement("div");
+                card.classList.add("question-card");
+
+                // "Question 1", "Question 2", ...
+                const number = document.createElement("div");
+                number.classList.add("question-number");
+                number.textContent = `Question ${i + 1}`;
+                card.appendChild(number);
+
+                // The question itself
+                const text = document.createElement("p");
+                text.classList.add("question-text");
+                text.textContent = q.question;
+                card.appendChild(text);
+
+                // One button per option
+                q.options.forEach((option, optionIndex) => {
+                    const button = document.createElement("button");
+                    button.classList.add("option");
+                    button.textContent = `${"ABCD"[optionIndex]}) ${option}`;
+                    button.addEventListener("click", () => {
+                        handleAnswer(card, optionIndex, q.answerIndex, quiz.questions.length);
+                    });
+                    card.appendChild(button);
+                });
+
+                // The explanation (hidden by CSS until an answer is picked)
+                const explanation = document.createElement("p");
+                explanation.classList.add("explanation");
+                explanation.textContent = q.explanation;
+                card.appendChild(explanation);
+
+                // Add the finished card to the page
+                quizEl.appendChild(card);
+            });
+        }
+
+        // ---------- 4: Mark an answer ----------
+        function handleAnswer(card, chosenIndex, correctIndex, total) {
+            const options = card.querySelectorAll(".option");
+            const explanation = card.querySelector(".explanation");
+
+            // TODO 4:
+            //   - add "correct" class to options[correctIndex]
+            options[correctIndex].classList.add("correct");
+            //   - if chosenIndex is wrong, add "wrong" class to options[chosenIndex]
+            //   - if chosenIndex is right, add 1 to score
+            if (chosenIndex === correctIndex) {
+                score++;
+            } else {
+                options[chosenIndex].classList.add("wrong");
+            }
+            //   - disable every option button so it can't be answered twice
+            options.forEach((button) => {
+                button.disabled = true;
+            })
+            //   - add "visible" class to the explanation
+            explanation.classList.add("visible");
+            //   - add 1 to answered, then call updateScore(total)
+            answered++;
+            updateScore(total);
+        }
+
+        function updateScore(total) {
+            scoreEl.textContent = `${score}/${total}`;
+        }
     </script>
 </body>
 </html>
